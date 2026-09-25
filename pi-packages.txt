@@ -33,13 +33,9 @@ npm:@quintinshaw/pi-dynamic-workflows
 git:github.com/obra/superpowers
 
 # Personal extension collection (git:github.com/andresbott/ai-extension-collection):
-# one Pi package whose manifest registers statusline, startup-splash, /clear,
-# /context, clear-on-exit, and the gitauto adapter.
+# one Pi package whose manifest registers coding-guides (standing rules injected
+# into the system prompt), statusline, startup-splash, /clear, /context,
+# clear-on-exit, and the gitauto adapter.
 git:github.com/andresbott/ai-extension-collection
-
-# Standing "harness rules", always injected into the system prompt — the Pi port
-# of the Claude coding-guides plugin. Pure mechanism: it reads ~/.pi/agent/rules.d/*.md.
-# This repo no longer fills rules.d; the rule content lives in ai-extension-collection.
-./extensions/harness-rules
 
 # add more as you port them from the old marketplace (land, …)

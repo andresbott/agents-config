@@ -18,20 +18,16 @@ linked into the Pi home.
 | Skills, standing rules, gitauto | Moved to `ai-extension-collection` | Via that package (in progress) | Via that marketplace |
 | Third-party packages | Reproducible package list in `pi-packages.txt` | **Ready:** installed by `make pi-install` | **Pending:** Claude marketplace/plugin state is not declared here |
 | Superpowers | `obra/superpowers` development-process skills and session bootstrap | **Ready:** installed as a Git Pi package | **Pending:** install separately through Claude's official plugin marketplace |
-| Local extensions | Standing-rule injection (`harness-rules`, reads `~/.pi/agent/rules.d/`, which this repo no longer fills); startup splash, footer, `/clear`, `/context` and clear-on-exit come from `ai-extension-collection` | **Ready:** registered by `make pi-install` | **Pending / Pi-specific:** no Claude equivalents are managed here |
+| Local extensions | None — every Pi extension (coding-guides standing rules, startup splash, statusline, `/clear`, `/context`, clear-on-exit) comes from `ai-extension-collection` | Via that package | — |
 | Preferences | `settings.json`: default Pi preferences (theme, startup, TUI, models, thinking level, autocomplete, terminal, telemetry, warnings) | **Ready:** merged under the live settings by `make pi-install` (live values win) | **Pending** |
 | Keybindings | `keybindings.json` with follow-up, thinking, and newline bindings | **Ready:** linked into the Pi home by `make pi-install` | **Pending** |
 | Prompts and themes | Reserved in the target layout | **Pending** | **Pending** |
 
 ## Pi extensions
 
-| Extension | Purpose | Main behavior |
-|---|---|---|
-| `extensions/harness-rules` | Inject standing rules | Loads `~/.pi/agent/rules.d/*.md` into every turn's system prompt |
-
-Each extension has its own README and tests under `extensions/<name>/`. The
-startup splash, statusline, `/clear`, `/context`, and clear-on-exit extensions
-live in [`ai-extension-collection`](https://github.com/andresbott/ai-extension-collection)
+This repository ships no Pi extensions of its own. The coding-guides standing
+rules, startup splash, statusline, `/clear`, `/context`, and clear-on-exit
+extensions live in [`ai-extension-collection`](https://github.com/andresbott/ai-extension-collection)
 and are installed from `pi-packages.txt`.
 
 ## Pi package inventory
@@ -49,8 +45,7 @@ and are installed from `pi-packages.txt`.
 | `npm:@ff-labs/pi-fff` | Fast fuzzy file and content search |
 | `npm:@quintinshaw/pi-dynamic-workflows` | Multi-agent workflows, model routing, accounting, and worktree isolation |
 | `git:github.com/obra/superpowers` | Brainstorming, planning, TDD, debugging, review, worktree, and completion skills with a Pi bootstrap extension |
-| `git:github.com/andresbott/ai-extension-collection` | Personal extensions: startup splash, statusline, `/clear`, `/context`, clear-on-exit, gitauto adapter |
-| `./extensions/*` entries | Register this repository's local Pi extensions (`harness-rules`) |
+| `git:github.com/andresbott/ai-extension-collection` | Personal extensions: coding-guides standing rules, startup splash, statusline, `/clear`, `/context`, clear-on-exit, gitauto adapter |
 
 Pi packages and extensions execute code with the user's permissions. Review new
 third-party sources before adding them to `pi-packages.txt`.
@@ -114,7 +109,6 @@ for skills, rules, and gitauto.
 ## Repository layout
 
 ```text
-extensions/          local Pi extensions
 Makefile              installation and link management
 pi-packages.txt       reproducible Pi package manifest
 keybindings.json      linked Pi keybindings

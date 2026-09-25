@@ -46,11 +46,10 @@ Worth porting from `odo-ai-marketplace` (see its `plugins/` directory): the
 `coding-guides`, `land`, `architects`, `doc-authoring`, `go-idioms`, `odo-repo`,
 and `session-sounds` plugins.
 
-> **Skills, rules, and gitauto moved out.** `go-idioms`, `doc-authoring`,
-> `coding-guides` (rule content), and the gitauto workflows now live in
-> `ai-extension-collection`. The local `extensions/harness-rules/` still injects
-> `~/.pi/agent/rules.d/*.md` via `before_agent_start`, but this repo no longer fills
-> `rules.d/`.
+> **Skills, rules, extensions, and gitauto moved out.** `go-idioms`, `doc-authoring`,
+> `coding-guides` (rule content plus the Pi extension that injects it), the Pi
+> extensions, and the gitauto workflows now live in `ai-extension-collection`. This
+> repo ships no local extensions.
 
 ## Target layout
 
@@ -63,7 +62,6 @@ and keep this list in sync. Items marked *(planned)* have no files.
 ├── Makefile             # pi-install / pi-settings / pi-status / pi-unlink
 ├── scripts/             # Makefile helpers (settings-missing-keys.jq)
 ├── pi-packages.txt      # Pi package manifest, installed by `make pi-install`
-├── extensions/          # repo-local Pi extensions (harness-rules, render-mode); the rest live in ai-extension-collection
 ├── keybindings.json     # linked into ~/.pi/agent/ by `make pi-install`
 ├── prompts/             # prompt templates (planned)
 ├── themes/              # (planned)
