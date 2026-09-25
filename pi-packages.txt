@@ -2,6 +2,13 @@
 # Blank lines and lines starting with # are ignored. Sources take the same
 # forms as `pi install`: npm:pkg, npm:@scope/pkg, git:…, https://…, ./local/path
 # (a bare name with no prefix is treated as a local ./path, not a registry pkg).
+#
+# To load only part of a package, write the line as the JSON object Pi keeps in
+# settings.json (one line, starting with `{`). `make pi-install` installs its
+# `source`, then swaps the plain-string settings entry for this object. It seeds
+# the filter only once: an entry that is already an object (e.g. edited in
+# `pi config`) is left alone. Filters narrow what loads, not what is cloned.
+#   {"source":"git:github.com/owner/repo","skills":["skills/one"]}
 
 # Subagent engine — lets Pi run the named agents in ./agents:
 npm:pi-subagents
@@ -22,11 +29,16 @@ npm:pi-mcp-adapter
 #                    Claude-Code-style dynamic workflows: fan a task across many
 #                    subagents (model routing, cost accounting, worktree isolation);
 #                    adds the /workflows TUI and /deep-research.
+#   pi-agent-browser-native
+#                    browser automation: native agent_browser tool wrapping the
+#                    upstream `agent-browser` CLI (installed via PI_NPM_GLOBALS);
+#                    uses system Chrome if present, else `agent-browser install`.
 npm:pi-web-access
 npm:pi-memory
 npm:pi-lens
 npm:@ff-labs/pi-fff
 npm:@quintinshaw/pi-dynamic-workflows
+npm:pi-agent-browser-native
 
 # Superpowers — composable software-development process skills (brainstorming,
 # TDD, debugging, planning, review, worktrees) plus the Pi session bootstrap.
@@ -37,5 +49,9 @@ git:github.com/obra/superpowers
 # into the system prompt), statusline, startup-splash, /clear, /context,
 # clear-on-exit, and the gitauto adapter.
 git:github.com/andresbott/ai-extension-collection
+
+# Anthropic's official skills repo — cloned whole, but only frontend-design loads
+# (distinctive, production-grade frontend UI). Unpinned: follows upstream `main`.
+{"source":"git:github.com/anthropics/skills","skills":["skills/frontend-design"]}
 
 # add more as you port them from the old marketplace (land, …)

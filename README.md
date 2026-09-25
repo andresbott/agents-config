@@ -20,6 +20,7 @@ linked into the Pi home.
 | Superpowers | `obra/superpowers` development-process skills and session bootstrap | **Ready:** installed as a Git Pi package | **Pending:** install separately through Claude's official plugin marketplace |
 | Local extensions | None — every Pi extension (coding-guides standing rules, startup splash, statusline, `/clear`, `/context`, clear-on-exit) comes from `ai-extension-collection` | Via that package | — |
 | Preferences | `settings.json`: default Pi preferences (theme, startup, TUI, models, thinking level, autocomplete, terminal, telemetry, warnings) | **Ready:** merged under the live settings by `make pi-install` (live values win) | **Pending** |
+| MCP servers | `mcp.json`: default MCP servers (Context7, keyless) | **Ready:** seeded into the live `mcp.json` by `make pi-install` (existing entries win) | **Pending** |
 | Keybindings | `keybindings.json` with follow-up, thinking, and newline bindings | **Ready:** linked into the Pi home by `make pi-install` | **Pending** |
 | Prompts and themes | Reserved in the target layout | **Pending** | **Pending** |
 
@@ -44,8 +45,10 @@ and are installed from `pi-packages.txt`.
 | `npm:pi-lens` | LSP, diagnostics, and code-intelligence tooling |
 | `npm:@ff-labs/pi-fff` | Fast fuzzy file and content search |
 | `npm:@quintinshaw/pi-dynamic-workflows` | Multi-agent workflows, model routing, accounting, and worktree isolation |
+| `npm:pi-agent-browser-native` | Browser automation via a native `agent_browser` tool over the `agent-browser` CLI |
 | `git:github.com/obra/superpowers` | Brainstorming, planning, TDD, debugging, review, worktree, and completion skills with a Pi bootstrap extension |
 | `git:github.com/andresbott/ai-extension-collection` | Personal extensions: coding-guides standing rules, startup splash, statusline, `/clear`, `/context`, clear-on-exit, gitauto adapter |
+| `git:github.com/anthropics/skills` (filtered) | Only the `frontend-design` skill; the rest of Anthropic's skills repo is cloned but not loaded |
 
 Pi packages and extensions execute code with the user's permissions. Review new
 third-party sources before adding them to `pi-packages.txt`.
@@ -58,6 +61,9 @@ Prerequisites:
 
 - Pi installed and available as `pi`
 - Git and Make
+- [tokensave](https://github.com/aovestdipaperino/tokensave) on `PATH`
+  (`brew install aovestdipaperino/tap/tokensave` or `cargo binstall tokensave`);
+  `make pi-install` fails early if it is missing
 - A Nerd Font if you want the statusline icons
 
 ```sh
@@ -68,13 +74,30 @@ make pi-install
 
 `make pi-install`:
 
-1. installs every non-comment entry from `pi-packages.txt`;
-2. merges `settings.json` defaults under `~/.pi/agent/settings.json` (needs `jq`):
+1. runs `npm install -g` for each tool in `PI_NPM_GLOBALS` that is not already
+   installed — currently `@tobilu/qmd`, the `qmd` search backend `npm:pi-memory`
+   needs, and `agent-browser`, the browser engine `npm:pi-agent-browser-native`
+   drives (it uses system Chrome if found; otherwise run `agent-browser install`);
+2. installs every non-comment entry from `pi-packages.txt` (needs `jq`). A JSON-object
+   line installs its `source`, then seeds that object's resource filter into
+   `~/.pi/agent/settings.json`, replacing the plain-string entry once and never
+   overwriting an entry that is already an object;
+3. merges `settings.json` defaults under `~/.pi/agent/settings.json` (needs `jq`):
    keys missing from the live file are added, keys already set live are kept, and
    arrays such as `enabledModels` are replaced whole rather than merged. It never
    touches a symlinked or invalid live file. Run only this step with
    `make pi-settings`;
-3. links `keybindings.json` into the Pi home without replacing an unrelated real file.
+4. adds every server in the repo `mcp.json` whose name is missing from
+   `~/.pi/agent/mcp.json` (needs `jq`) — currently Context7
+   (`https://mcp.context7.com/mcp`, no API key: public docs at anonymous rate
+   limits). Servers are added whole, by name: an existing live entry with the same
+   name (e.g. one you gave an API key) is never touched, and other live keys are
+   kept. A removed default comes back on the next run — set `"disabled": true` on
+   it instead;
+5. links `keybindings.json` into the Pi home without replacing an unrelated real file;
+6. runs `tokensave install --agent pi --git-hook yes`, which registers the tokensave
+   MCP server in `~/.pi/agent/mcp.json` and installs its git sync hooks (override
+   with `TOKENSAVE_GIT_HOOK=no`). Run `tokensave init` in each project to index it.
 
 Restart Pi after the first installation so all packages and bootstrap extensions
 load. Re-run `make pi-install` after changing the package manifest.
@@ -90,6 +113,7 @@ To target another Pi home:
 
 ```sh
 make pi-install PI_CODING_AGENT_DIR=/path/to/pi-home
+make pi-install PI=echo NPM=echo TOKENSAVE=echo PI_CODING_AGENT_DIR=/tmp/t/pi   # dry run
 ```
 
 ### Claude Code
@@ -113,7 +137,8 @@ Makefile              installation and link management
 pi-packages.txt       reproducible Pi package manifest
 keybindings.json      linked Pi keybindings
 settings.json         default Pi preferences, merged under the live settings
-scripts/              Makefile helpers (settings-merge jq filter)
+mcp.json              default MCP servers, seeded into the live mcp.json by name
+scripts/              Makefile helpers (settings-merge, package-filter and MCP-seed jq filters)
 TODO.md               remaining setup and porting work
 AGENTS.md             instructions for agents working on this repository
 ```
