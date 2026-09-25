@@ -59,7 +59,7 @@ and keep this list in sync. Items marked *(planned)* have no files.
 ```
 .
 ├── AGENTS.md            # this file — guide to working ON this repo
-├── Makefile             # pi-install / pi-settings / pi-status / pi-unlink
+├── Makefile             # pi-install (needs pi-tokensave) / pi-tokensave / pi-settings / pi-status / pi-unlink
 ├── scripts/             # Makefile helpers (settings-missing-keys.jq, apply-package-filter.jq, mcp-*.jq)
 ├── pi-packages.txt      # Pi package manifest, installed by `make pi-install`
 ├── keybindings.json     # linked into ~/.pi/agent/ by `make pi-install`
@@ -67,6 +67,7 @@ and keep this list in sync. Items marked *(planned)* have no files.
 ├── themes/              # (planned)
 ├── settings.json        # default Pi preferences — merged under ~/.pi/agent/settings.json (live values win)
 ├── mcp.json             # default MCP servers — seeded into ~/.pi/agent/mcp.json by server name
+├── pi-permission-system.json # starter permission policy — copied to ~/.pi/agent/extensions/pi-permission-system/config.json if missing
 └── <global AGENTS.md>   # (location TBD) personal rules, linked into each harness home by hand
 ```
 
@@ -74,21 +75,32 @@ and keep this list in sync. Items marked *(planned)* have no files.
 
 ```sh
 git clone git@github.com:andresbott/agents-config.git && cd agents-config
-make pi-install    # tokensave check, npm tools (qmd), pi-packages.txt, settings defaults, MCP servers, link keybindings.json, register tokensave
+make pi-install    # pi-tokensave (check, register MCP, git-ignore .tokensave/), npm tools (qmd), permission policy, pi-packages.txt, settings defaults, MCP servers, link keybindings.json
 ```
 
 `pi-install` re-points its own stale links and never clobbers a real file it did not
 create. Before the Pi packages it runs `npm install -g` for each tool in
 `PI_NPM_GLOBALS` (a Makefile variable) that is missing — e.g. `@tobilu/qmd`, the
 `qmd` backend `npm:pi-memory` shells out to. Add new global npm dependencies of Pi
-packages there, not in `pi-packages.txt` (which `pi install` consumes). `pi-install`
-first checks that `tokensave` is on `PATH` and fails with install hints if not (it is a
-Rust binary, so it is not auto-installed); at the end it runs `tokensave install
+packages there, not in `pi-packages.txt` (which `pi install` consumes).
+
+**tokensave setup is its own target.** `pi-install` depends on `pi-tokensave`, so
+it runs first (and alone via `make pi-tokensave`). It checks that `tokensave` is on
+`PATH` and fails with install hints if not (it is a Rust binary, so it is not
+auto-installed) — before anything else is written. Then it runs `tokensave install
 --agent pi --git-hook $(TOKENSAVE_GIT_HOOK)` (default `yes`) to register the MCP
-server in `<agent-dir>/mcp.json`. `pi-unlink` removes only the symlinks that point back into this repo, and
-`pi-status` shows installed packages, missing settings defaults, missing MCP servers, and linked config.
+server in `<agent-dir>/mcp.json` (it creates the agent dir if needed, and the MCP
+seeding that runs later merges into its file). Last, it appends `.tokensave/` (the per-project
+index `tokensave init` creates) to the user's global gitignore — `git config --global
+core.excludesFile` if set, else git's default `${XDG_CONFIG_HOME:-~/.config}/git/ignore`
+— unless an equivalent line (`.tokensave`, `/.tokensave/`, `**/.tokensave/`) is
+already there; it never sets `core.excludesFile` itself. Keep tokensave-only steps in
+`pi-tokensave`, not in `pi-install`.
+
+`pi-unlink` removes only the symlinks that point back into this repo, and
+`pi-status` shows installed packages, missing settings defaults, missing MCP servers, the permission policy, and linked config.
 Override `PI_CODING_AGENT_DIR` (and `PI=echo NPM=echo TOKENSAVE=echo`) on the command line to test against
-a scratch dir.
+a scratch dir; the gitignore step follows `$HOME`, so prefix `HOME=/tmp/t` to keep it off the real one.
 
 **Filtered packages.** A `pi-packages.txt` line starting with `{` is the JSON object
 form Pi keeps in `settings.json` (`{"source":"git:…","skills":["skills/x"]}`).
@@ -120,6 +132,61 @@ the seeding then leaves alone. The repo file is safe at the root: the adapter
 loads project config only from `.mcp.json` and `.pi/mcp.json`. tokensave
 registers itself in the same file and merges rather than overwrites, so it is
 not listed here.
+
+**The permission policy is copied once, never merged.** `npm:@gotgenes/pi-permission-system`
+reads `<agent-dir>/extensions/pi-permission-system/config.json`; with no file,
+every tool call asks. So `pi-install` copies `pi-permission-system.json` there
+*before* installing packages, and only when nothing (not even a symlink) is at that
+path. It is not linked — the extension rewrites the file (temp file + rename, which
+would replace a link) — and not merged, because a merged-in rule could silently
+loosen or tighten a policy the user has edited. Keep it plain JSON (a rewrite drops
+comments) and valid against the package's `schemas/permissions.schema.json`.
+
+The starter is **restrictive on purpose** and meant to be relaxed rule by rule as
+prompts get in the way. Its shape, which a change should keep:
+
+- `"*": "ask"` — any tool not listed prompts (network, subagents, workflows,
+  browser, memory writes, `mcpScript`). Read-only tools are allowed by name; any
+  registered tool name is a valid key.
+- **Writes are gated in one place, `path_write`**, which covers the `write`/`edit`
+  tools, bash redirects, `find -delete`, and path-bearing extension tools. Its
+  `"*"` is `allow`: file edits inside the working tree need no approval, while
+  `external_directory` still asks outside it and the secret and policy denies
+  hold. To make writes ask again, set `path_write`'s `"*"` back to `ask` — not
+  the `write`/`edit` tool keys: every gate that says `ask` prompts separately,
+  so asking on both would double-prompt each write, and the bash allowlist does
+  not stop writes by itself (`cat > f <<EOF` is an allowed `cat`; only
+  `path_write` catches the redirect). With `ask` there, an extension tool with a
+  `path` argument (e.g. `ffgrep`, `read_symbol`) prompts even when the tool is
+  allowed, because extension tools consult both read and write surfaces.
+- `path_read` / `path_write` are written out rather than as bare `path`, so
+  either direction can be tightened on its own: sugar entries come first and
+  explicit ones after, so a bare `path` deny would be overridden by a later
+  `path_write` `"*"` (last match wins). Keep every secret deny in **both** maps,
+  after their `"*"`.
+- `external_directory` (the outside-the-working-tree gate) is split the same
+  way: `_read` is `allow` (reading anywhere; the `path_read` secret denies still
+  apply), `_write` is `ask`. Only the built-in `read` / `grep` / `find` / `ls` and
+  the package's pure-reader bash words (`cat`, `grep`, `ls`, `find`, `head`, …)
+  prove a read and get the free pass. Extension and MCP tools (`ffgrep`,
+  `read_symbol`, …) prove no direction — hardcoded in the package
+  (`effectProvenByTool`), no config key — so outside the tree they also consult
+  `_write` and still prompt; inside it they are free because `path_write` allows.
+  Making them silent outside would need `external_directory_write: allow`, which
+  would let every tool write outside the tree — don't. If one external tree gets
+  noisy, grant it on `_write` itself as a map —
+  `"external_directory_write": {"*": "ask", "~/src/*": "allow"}` — knowing that
+  lets every tool write there. (Not on bare `external_directory`: its entries
+  expand first, so the explicit `_write` `"*"` after them would win.)
+- `bash` is `"*": "ask"` plus read-only commands (exact forms for `git branch`,
+  whose other forms mutate). Hard denies (`sudo`, `doas`, force-push) carry a
+  `reason` so the agent learns what to do instead.
+
+`npm:pi-subagents` runs subagents as subprocesses that cannot forward an `ask` to
+the parent, so inside them every `ask` is a deny — under this policy subagents and
+workflow workers can read and edit files in the working tree, but any command off
+the bash allowlist (running tests, builds, `git commit`) is denied. Allowing those
+commands is the next step to let them work unattended.
 
 Only one Pi subagent engine is installed on purpose (`npm:pi-subagents`, listed in
 `pi-packages.txt`): `@tintinweb/pi-subagents` was dropped because it loaded the same

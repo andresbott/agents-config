@@ -24,15 +24,23 @@ PI                  ?= pi
 # server name; a live entry with the same name is never touched.
 PI_MCP_DEFAULTS     ?= $(CURDIR)/mcp.json
 PI_MCP_CONFIG       ?= $(PI_CODING_AGENT_DIR)/mcp.json
+# Starter policy for npm:@gotgenes/pi-permission-system, copied only when the live
+# file is missing. Never linked or merged: the extension rewrites that file itself.
+PI_PERMISSION_DEFAULTS ?= $(CURDIR)/pi-permission-system.json
+PI_PERMISSION_CONFIG   ?= $(PI_CODING_AGENT_DIR)/extensions/pi-permission-system/config.json
 # Global npm tools that Pi packages shell out to (installed before the packages).
 #   @tobilu/qmd   — `qmd` search backend required by npm:pi-memory
 #   agent-browser — browser engine CLI required by npm:pi-agent-browser-native
 PI_NPM_GLOBALS      ?= @tobilu/qmd agent-browser
 NPM                 ?= npm
 # tokensave — code-graph MCP server, registered in <agent-dir>/mcp.json (read by
-# npm:pi-mcp-adapter). Required but not auto-installed: pi-install fails if missing.
+# npm:pi-mcp-adapter) by the pi-tokensave target, a prerequisite of pi-install.
+# Required but not auto-installed: pi-tokensave fails if missing.
 TOKENSAVE           ?= tokensave
 TOKENSAVE_GIT_HOOK  ?= yes
+# Its per-project .tokensave/ index is added to the user's global gitignore
+# (git config --global core.excludesFile, else git's default ~/.config/git/ignore).
+GIT                 ?= git
 # jq filter listing repo defaults the live settings file lacks.
 JQ_MISSING_DEFAULTS := $(CURDIR)/scripts/settings-missing-keys.jq
 # jq filter seeding a manifest JSON line's resource filter into the live settings.
@@ -43,21 +51,22 @@ JQ_MCP_SEED         := $(CURDIR)/scripts/mcp-seed-servers.jq
 
 default: help
 
-.PHONY: pi-install pi-settings pi-status pi-unlink help
+.PHONY: pi-install pi-tokensave pi-settings pi-status pi-unlink help
 
 #==========================================================================================
 ##@ Pi
 #==========================================================================================
-pi-install: ## check tokensave, install npm tools and packages, merge settings defaults, seed MCP servers, link config, register tokensave in Pi
-	@command -v "$(TOKENSAVE)" >/dev/null 2>&1 || { \
-		echo "!! tokensave is required but '$(TOKENSAVE)' is not on PATH. Install it, then re-run make pi-install:" >&2; \
-		echo "     brew install aovestdipaperino/tap/tokensave   # or: cargo binstall tokensave" >&2; \
-		echo "     prebuilt binaries: https://github.com/aovestdipaperino/tokensave/releases/latest" >&2; \
-		exit 1; }
+pi-install: pi-tokensave ## full Pi setup (tokensave, packages, settings, MCP, permissions, links)
 	@for p in $(PI_NPM_GLOBALS); do \
 		if $(NPM) ls -g --depth=0 "$$p" >/dev/null 2>&1; then echo "ok      $$p (npm global already installed)"; \
 		else echo ">> npm install -g $$p"; $(NPM) install -g "$$p" </dev/null || { echo "!! npm install -g $$p failed" >&2; exit 1; }; fi; \
 	done
+	@# Before the packages, so the permission extension never loads without a policy
+	@# (with none, every tool call asks).
+	@src="$(PI_PERMISSION_DEFAULTS)"; dest="$(PI_PERMISSION_CONFIG)"; \
+	if [ ! -f "$$src" ]; then echo "no permission policy at $$src — skipping"; \
+	elif [ -e "$$dest" ] || [ -L "$$dest" ]; then echo "ok      $$dest (permission policy exists, left untouched)"; \
+	else mkdir -p "$$(dirname "$$dest")" && cp "$$src" "$$dest" && echo "create  $$dest (starter permission policy)"; fi
 	@[ -f "$(PI_PACKAGES)" ] || echo "no manifest at $(PI_PACKAGES) — skipping package install"
 	@[ ! -f "$(PI_PACKAGES)" ] || { \
 		command -v jq >/dev/null 2>&1 || { echo "pi-install: jq is required" >&2; exit 1; }; \
@@ -112,9 +121,28 @@ pi-install: ## check tokensave, install npm tools and packages, merge settings d
 		elif [ -e "$$dest" ]; then echo "SKIP    $$dest (real file, left untouched)"; \
 		else ln -s "$$src" "$$dest"; echo "link    $$dest"; fi; \
 	done
+
+pi-tokensave: ## check tokensave is installed, register its MCP server in Pi, git-ignore .tokensave/ globally
+	@command -v "$(TOKENSAVE)" >/dev/null 2>&1 || { \
+		echo "!! tokensave is required but '$(TOKENSAVE)' is not on PATH. Install it, then re-run make pi-install:" >&2; \
+		echo "     brew install aovestdipaperino/tap/tokensave   # or: cargo binstall tokensave" >&2; \
+		echo "     prebuilt binaries: https://github.com/aovestdipaperino/tokensave/releases/latest" >&2; \
+		exit 1; }
 	@echo ">> tokensave install --agent pi --git-hook $(TOKENSAVE_GIT_HOOK)"
 	@PI_CODING_AGENT_DIR="$(PI_CODING_AGENT_DIR)" $(TOKENSAVE) install --agent pi --git-hook "$(TOKENSAVE_GIT_HOOK)" </dev/null \
 		|| { echo "!! tokensave install failed" >&2; exit 1; }
+	@f=$$($(GIT) config --global --get core.excludesFile); \
+	[ -n "$$f" ] || f="$${XDG_CONFIG_HOME:-$$HOME/.config}/git/ignore"; \
+	case "$$f" in "~/"*) f="$$HOME/$${f#??}";; esac; \
+	if [ -f "$$f" ] && grep -qxE '(\*\*/|/)?\.tokensave/?' "$$f"; then \
+		echo "ok      $$f (.tokensave/ already git-ignored)"; \
+	else \
+		mkdir -p "$$(dirname "$$f")" || exit 1; \
+		if [ -s "$$f" ] && [ -n "$$(tail -c1 "$$f")" ]; then echo >> "$$f"; fi; \
+		printf '%s\n' "# tokensave per-project index (added by agents-config make pi-tokensave)" ".tokensave/" >> "$$f" \
+			|| { echo "!! could not update global gitignore $$f" >&2; exit 1; }; \
+		echo "ignore  $$f (added .tokensave/)"; \
+	fi
 
 pi-settings: ## merge repo settings.json defaults under the live Pi settings (live values win)
 	@command -v jq >/dev/null 2>&1 || { echo "pi-settings: jq is required" >&2; exit 1; }
@@ -133,7 +161,7 @@ pi-settings: ## merge repo settings.json defaults under the live Pi settings (li
 		cp "$$tmp" "$$dest"; rm -f "$$tmp"; echo "merge   $$dest (added: $$missing)"; \
 	else rm -f "$$tmp"; echo "pi-settings: merge failed" >&2; exit 1; fi
 
-pi-status: ## show Pi state — npm tools, packages, settings defaults, MCP servers, config linked
+pi-status: ## show Pi state — npm tools, packages, settings defaults, MCP servers, permission policy, config linked
 	@echo "npm globals (PI_NPM_GLOBALS):"
 	@for p in $(PI_NPM_GLOBALS); do \
 		if $(NPM) ls -g --depth=0 "$$p" >/dev/null 2>&1; then echo "  installed  $$p"; \
@@ -176,6 +204,10 @@ pi-status: ## show Pi state — npm tools, packages, settings defaults, MCP serv
 	elif ! missing=$$(jq -r -s -f "$(JQ_MCP_MISSING)" "$$src" "$$dest" 2>/dev/null); then echo "  INVALID    $$dest"; \
 	elif [ -z "$$missing" ]; then echo "  applied    all default servers present"; \
 	else echo "  MISSING    $$missing"; fi
+	@echo "Permission policy (pi-permission-system):"
+	@dest="$(PI_PERMISSION_CONFIG)"; \
+	if [ -f "$$dest" ]; then echo "  present    $$dest"; \
+	else echo "  MISSING    $$dest (with none, every tool call asks)"; fi
 	@echo "Config files (~/.pi/agent):"
 	@for f in $(PI_HOME_FILES); do \
 		dest="$(PI_CODING_AGENT_DIR)/$$f"; \
