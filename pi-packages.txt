@@ -33,12 +33,20 @@ npm:pi-mcp-adapter
 #                    browser automation: native agent_browser tool wrapping the
 #                    upstream `agent-browser` CLI (installed via PI_NPM_GLOBALS);
 #                    uses system Chrome if present, else `agent-browser install`.
+#   @gotgenes/pi-permission-system
+#                    allow / ask / deny policy for tools, bash patterns, paths, MCP
+#                    and skills. Policy: ~/.pi/agent/extensions/pi-permission-system/
+#                    config.json — with none, EVERY tool call asks, so `make
+#                    pi-install` first copies ./pi-permission-system.json there if
+#                    missing. Subprocess subagents (npm:pi-subagents) cannot
+#                    forward an `ask`: inside them it is denied.
 npm:pi-web-access
 npm:pi-memory
 npm:pi-lens
 npm:@ff-labs/pi-fff
 npm:@quintinshaw/pi-dynamic-workflows
 npm:pi-agent-browser-native
+npm:@gotgenes/pi-permission-system
 
 # Superpowers — composable software-development process skills (brainstorming,
 # TDD, debugging, planning, review, worktrees) plus the Pi session bootstrap.
