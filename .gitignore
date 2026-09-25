@@ -9,3 +9,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+# npm (Pi subagent runtime packages, if ever installed locally)
+node_modules/
+
+# Pi project-local state / caches (this repo is a config source, not a workspace)
+/.pi/
+
+# Superpowers plans/specs (session artifacts, not config)
+/docs/superpowers/
