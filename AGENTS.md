@@ -4,102 +4,115 @@ Guidance for AI agents working in this repository.
 
 ## What this repo is
 
-Andrés's personal **Pi** configuration — a "pi-dotfiles" repo: the agent's
-settings, context, skills, and extensions, versioned in git so the same setup is
-reproducible across machines. The config is *applied* by installing this repo
-as a Pi package (see [Applying the config](#applying-the-config)) — `pi` reads
-`skills/`, `extensions/`, `prompts/`, and `themes/` straight from the package
-source (no copy step), so edits here take effect immediately.
+Andrés's personal **Pi** configuration, kept as a dotfiles repo: the Pi package
+manifest, keybindings, and default settings versioned in git so the same setup is
+reproducible across machines. It targets **Pi** (`~/.pi/agent/`, overridable via
+`$PI_CODING_AGENT_DIR`).
 
-Pi is a terminal coding agent in the same family as Claude Code and omp; each
-keeps its config under a home directory (`~/.pi/`, `~/.claude/`, `~/.omp/`). This
-repo is the source of truth for the Pi side.
+`make pi-install` installs the packages and symlinks config files into the Pi home,
+so edits here take effect live (see [Applying the config](#applying-the-config)).
 
-> **This `AGENTS.md` is the guide to working *on this repo*.** It is distinct
-> from the **global-context** `AGENTS.md` that Pi loads for every project (your
-> personal rules) — that payload lives separately in the tree. Unlike
-> `skills/`/`extensions/`/`prompts/`/`themes/`, it is **not** a package resource
-> kind `pi install` can place; it's a context file Pi discovers directly, so it
-> still needs a manual link to `~/.pi/agent/AGENTS.md` (see
-> [Applying the config](#applying-the-config)). Keep personal global rules out
-> of this file.
+**Skills, standing rules, and the gitauto workflows are not managed here.** They
+live in [`ai-extension-collection`](https://github.com/andresbott/ai-extension-collection)
+(a Claude marketplace + Pi package), which is installed from `pi-packages.txt`.
+Do not re-add `skills/`, `rules/`, or `workflows/` directories.
 
-## Status — migration in progress
+> **This `AGENTS.md` is the guide to working *on this repo*.** It is distinct from
+> the **global-context** `AGENTS.md` / `CLAUDE.md` that a harness loads for every
+> project (your personal rules); that payload lives separately and is linked into
+> each harness home by hand. Keep personal global rules out of this file.
 
-This repo replaces the **`odo-private-config` Claude Code plugin marketplace**.
-That marketplace's source lives in a separate repo, at
-`/home/bott/.datos/edit/programacion-privado/odo-ai-marketplace`, and is being
-ported into the Pi layout here.
+## Why dotfiles, not a plugin
 
-- **`odo-ai-marketplace` is read-only legacy from this repo's perspective.**
-  Don't edit it from here. Treat it as a reference to *mine* when porting a
-  capability into the Pi structure.
-- **New work goes at the repo root**, in the Pi layout below.
+A Pi package (`pi install`) distributes only `skills` / `extensions` / `prompts` /
+`themes`, never settings or keybindings. Those per-machine files are what this repo
+links; everything distributable belongs in a package.
+
+**Named agents are not managed here** — they are distributed as a plugin. Do not
+re-add an `agents/` directory.
+
+## Status — porting from the old marketplace
+
+This repo replaces the **`odo-private-config` Claude Code plugin marketplace**. That
+marketplace's source lives in a separate repo, at
+`/home/bott/.datos/edit/programacion-privado/odo-ai-marketplace`, and its capabilities
+are being ported into this dotfiles layout.
+
+- **`odo-ai-marketplace` is read-only legacy from this repo's perspective.** Don't
+  edit it from here — mine it as a reference when porting a capability.
+- **New work goes at the repo root**, in the dotfiles layout below.
 
 Worth porting from `odo-ai-marketplace` (see its `plugins/` directory): the
-`coding-guides`, `land`, `architects`, `doc-authoring`, `go-idioms`,
-`odo-repo`, and `session-sounds` plugins. For how the legacy marketplace
-worked, see its `README.md`.
+`coding-guides`, `land`, `architects`, `doc-authoring`, `go-idioms`, `odo-repo`,
+and `session-sounds` plugins.
+
+> **Skills, rules, and gitauto moved out.** `go-idioms`, `doc-authoring`,
+> `coding-guides` (rule content), and the gitauto workflows now live in
+> `ai-extension-collection`. The local `extensions/harness-rules/` still injects
+> `~/.pi/agent/rules.d/*.md` via `before_agent_start`, but this repo no longer fills
+> `rules.d/`.
 
 ## Target layout
 
-The Pi config follows the "pi-dotfiles" convention. **This is the target** — most
-of it does not exist yet; the repo currently holds only `OLD_CONTENT/` and this
-file. Build it out incrementally, and keep this list in sync as it fills in.
+**This is the target** — some of it does not exist yet. Build it out incrementally
+and keep this list in sync. Items marked *(planned)* have no files.
 
 ```
 .
 ├── AGENTS.md            # this file — guide to working ON this repo
-├── settings.json        # reference preferences (copied by hand — not part of `pi install`)
-├── skills/              # SKILL.md skills
-├── extensions/          # TypeScript extensions
-├── prompts/             # prompt templates
-├── themes/
-└── <global AGENTS.md>   # (location TBD) personal rules linked to ~/.pi/agent/AGENTS.md
+├── Makefile             # pi-install / pi-settings / pi-status / pi-unlink
+├── scripts/             # Makefile helpers (settings-missing-keys.jq)
+├── pi-packages.txt      # Pi package manifest, installed by `make pi-install`
+├── extensions/          # repo-local Pi extensions (harness-rules, render-mode); the rest live in ai-extension-collection
+├── keybindings.json     # linked into ~/.pi/agent/ by `make pi-install`
+├── prompts/             # prompt templates (planned)
+├── themes/              # (planned)
+├── settings.json        # default Pi preferences — merged under ~/.pi/agent/settings.json (live values win)
+└── <global AGENTS.md>   # (location TBD) personal rules, linked into each harness home by hand
 ```
 
 ## Applying the config
 
-```
+```sh
 git clone git@github.com:andresbott/agents-config.git && cd agents-config
-pi install .            # registers this repo as a Pi package (user scope)
+make pi-install    # install pi-packages.txt, merge settings defaults, link keybindings.json
 ```
 
-`pi install <path>` auto-discovers `skills/`, `extensions/`, `prompts/`, and
-`themes/` at the package root and adds the source to
-`~/.pi/agent/settings.json`'s `packages` list. For a **local path**, `pi` reads
-the files in place (not copied), so edits here take effect live — no build or
-reload step. From a different machine, the same command works against a git
-source instead: `pi install git:github.com/andresbott/agents-config` (that
-variant *is* cloned into a managed cache, so re-run `pi update <source>` to
-pick up changes there). Use `pi install -l .` instead of `pi install .` to
-install project-locally (`.pi/settings.json`) rather than for the current
-user.
+`pi-install` re-points its own stale links and never clobbers a real file it did not
+create. `pi-unlink` removes only the symlinks that point back into this repo, and
+`pi-status` shows installed packages, missing settings defaults, and linked config.
+Override `PI_CODING_AGENT_DIR` (and `PI=echo`) on the command line to test against
+a scratch dir.
 
-Two things `pi install` does **not** cover, both because they aren't a package
-resource kind:
+**Settings are defaults, not a mirror.** Pi has no defaults layer (it merges only
+`~/.pi/agent/settings.json` and a project `.pi/settings.json`, project winning), so
+`make pi-settings` (run by `pi-install`) deep-merges this repo's `settings.json`
+*under* the live file with `jq -s '.[0] * .[1]'`: missing keys are added, live values
+win, arrays are replaced whole. Do not symlink `settings.json` — Pi writes through
+the link (`/settings`, `/model`, `pi install`, `lastChangelogVersion`). Keep
+`packages` out of it (that is `pi-packages.txt`), and keep per-machine choices such
+as `defaultProvider` / `defaultModel` out unless they should seed every machine.
 
-- **`settings.json` preferences** (`defaultProvider`, `defaultModel`, active
-  `theme`, etc.) — copy the relevant keys from this repo's `settings.json` into
-  `~/.pi/agent/settings.json` by hand, per machine. Some of these
-  (provider/model choice) may legitimately differ per machine anyway.
-- **The global-context `AGENTS.md` payload** — link or copy it directly to
-  `~/.pi/agent/AGENTS.md` (**not** this repo-guide file).
+Only one Pi subagent engine is installed on purpose (`npm:pi-subagents`, listed in
+`pi-packages.txt`): `@tintinweb/pi-subagents` was dropped because it loaded the same
+named agents a second time via a parallel `Agent` tool.
 
-> **Confirm before relying on this:** if the daily driver is `omp` rather than
-> vanilla Pi, the target is `~/.omp/` (with `config.yml`) instead of `~/.pi/`,
-> and it isn't yet confirmed whether `omp` has the same package-install
-> mechanism. Decide which harness this repo standardizes on and update this
-> section.
+One thing the Makefile does **not** cover:
 
-## Conventions for agents
+- **The global-context `AGENTS.md` / `CLAUDE.md` payload** — link or copy it directly
+  into each harness home (`~/.pi/agent/AGENTS.md`, `~/.claude/CLAUDE.md`), **not** this
+  repo-guide file.
 
-- **Where work goes:** the repo root, in the Pi layout above. Never modify
-  `odo-ai-marketplace` — it's a separate repo, kept read-only from here.
-- **Keep the layout honest:** add a directory/file to *Target layout* only when
-  it actually exists.
-- **Commits:** Conventional Commits (`feat(scope): …`, `docs: …`, `ci: …`),
-  matching the existing history.
+> **Confirm before relying on this:** if a machine's daily driver is `omp` rather than
+> vanilla Pi, its home is `~/.omp/` (with `config.yml`); add it as a third link target
+> once that's confirmed.
+
+## Conventions
+
+- **Keep the layout honest:** add a directory/file to *Target layout* only once it
+  actually exists.
+- **Commits:** Conventional Commits (`feat(scope): …`, `docs: …`, `ci: …`), matching
+  the existing history.
 - **No version-bump rule.** The old marketplace required bumping
-  `.claude-plugin/marketplace.json` on every commit; that mechanism lives only in
-  legacy `OLD_CONTENT/` and does **not** apply to new work here.
+  `.claude-plugin/marketplace.json` on every commit; there is no package or manifest
+  here, so nothing like that applies.

@@ -1,0 +1,23 @@
+{
+  "theme": "dark",
+  "quietStartup": true,
+  "tuiMode": "regular",
+  "enabledModels": [
+    "github-copilot/claude-opus-4.8",
+    "github-copilot/claude-opus-5",
+    "github-copilot/claude-sonnet-5",
+    "github-copilot/kimi-k3",
+    "github-copilot/gpt-5.6-sol",
+    "github-copilot/claude-opus-5.5"
+  ],
+  "defaultThinkingLevel": "xhigh",
+  "autocompleteMaxVisible": 10,
+  "terminal": {
+    "showTerminalProgress": true
+  },
+  "enableInstallTelemetry": true,
+  "fullscreenCopyOnSelect": false,
+  "warnings": {
+    "anthropicExtraUsage": false
+  }
+}

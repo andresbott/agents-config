@@ -1,0 +1,45 @@
+# Pi packages/plugins to install on `make pi-install` (one source per line).
+# Blank lines and lines starting with # are ignored. Sources take the same
+# forms as `pi install`: npm:pkg, npm:@scope/pkg, git:…, https://…, ./local/path
+# (a bare name with no prefix is treated as a local ./path, not a registry pkg).
+
+# Subagent engine — lets Pi run the named agents in ./agents:
+npm:pi-subagents
+
+# MCP client — connect Pi to MCP servers via a single ~200-token proxy tool
+# (keeps tool schemas out of context). Servers go in ~/.pi/agent/mcp.json
+# (or the shared ~/.config/mcp/mcp.json); it can import Claude Code's MCP config.
+npm:pi-mcp-adapter
+
+# Third-party capability packages (Pi registry / npm):
+#   pi-web-access    web search, URL fetch, GitHub clone, PDF/YouTube extraction.
+#                    Zero-config (Exa search built in); optional provider keys go
+#                    in ~/.pi/agent/web-search.json; ffmpeg + yt-dlp enable video.
+#   pi-memory        persistent memory across Pi sessions.
+#   pi-lens          real-time code feedback: LSP, linters, formatters, type-check.
+#   @ff-labs/pi-fff  FFF-powered fuzzy file & content search.
+#   @quintinshaw/pi-dynamic-workflows
+#                    Claude-Code-style dynamic workflows: fan a task across many
+#                    subagents (model routing, cost accounting, worktree isolation);
+#                    adds the /workflows TUI and /deep-research.
+npm:pi-web-access
+npm:pi-memory
+npm:pi-lens
+npm:@ff-labs/pi-fff
+npm:@quintinshaw/pi-dynamic-workflows
+
+# Superpowers — composable software-development process skills (brainstorming,
+# TDD, debugging, planning, review, worktrees) plus the Pi session bootstrap.
+git:github.com/obra/superpowers
+
+# Personal extension collection (git:github.com/andresbott/ai-extension-collection):
+# one Pi package whose manifest registers statusline, startup-splash, /clear,
+# /context, clear-on-exit, and the gitauto adapter.
+git:github.com/andresbott/ai-extension-collection
+
+# Standing "harness rules", always injected into the system prompt — the Pi port
+# of the Claude coding-guides plugin. Pure mechanism: it reads ~/.pi/agent/rules.d/*.md.
+# This repo no longer fills rules.d; the rule content lives in ai-extension-collection.
+./extensions/harness-rules
+
+# add more as you port them from the old marketplace (land, …)
